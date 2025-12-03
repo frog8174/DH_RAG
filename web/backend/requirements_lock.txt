@@ -1,0 +1,24 @@
+
+
+fastapi==0.121.2
+uvicorn==0.38.0
+pydantic==2.12.3             # FastAPI 的核心驗證依賴
+python-multipart==0.0.20     # 用於處理 POST 請求的表單數據 (如果需要)
+python-dotenv==1.2.1         # 處理環境變數
+
+# RAG / LLM / Milvus 相關核心套件
+langchain==0.3.27
+langchain-core==0.3.79
+langchain-community==0.3.31
+langchain-google-genai==2.1.12  # Google Gemini/Vertex AI
+langchain-text-splitters==0.3.11
+pymilvus[milvus_lite]==2.6.2                 # Milvus 向量資料庫連線
+langchain-milvus==0.2.1         # LangChain Milvus 整合
+requests==2.32.5                # 基礎網路請求 (通常是 LangChain 內部的依賴)
+PyYAML==6.0.3                   # YAML 處理 (如果需要讀取配置檔)
+
+# 額外的資料處理與科學計算 (LangChain/Milvus 的間接依賴，但最好保留在頂層)
+numpy==2.3.4
+pandas==2.3.3
+scikit-learn==1.7.2
+scipy==1.16.3

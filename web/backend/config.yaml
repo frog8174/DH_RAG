@@ -1,0 +1,247 @@
+google:
+  # api_key: "${GOOGLE_API_KEY}" # 可從 .env 讀取
+  model: "gemini-2.5-flash" # 預設主要生成模型
+  
+  # 支援的模型列表 (供前端選擇)
+  models:
+    - "gemini-2.5-flash"
+    - "gemini-2.5-pro"
+
+  rewriter_model: "gemini-2.5-flash" # Query Rewriting (速度優先)
+  reviewer_model: "gemini-2.5-pro"   # Self-Reflection (邏輯優先，建議用 Pro)
+
+  temperature: 0
+  max_tokens: null
+  timeout: null
+  thinking_budget: -1
+  include_thoughts: true
+  response_mime_type: "application/json"
+  json_schema:
+    type: array
+    items:
+      type: object
+      properties:
+        題幹:
+          type: string
+          description: "一題單選題的題目敘述，不含選項文字。"
+        選項A:
+          type: string
+          description: "選項 A 的完整文字，包含 '(A)' 開頭"
+        選項B:
+          type: string
+          description: "選項 B 的完整文字，包含 '(B)' 開頭"
+        選項C:
+          type: string
+          description: "選項 C 的完整文字，包含 '(C)' 開頭"
+        選項D:
+          type: string
+          description: "選項 D 的完整文字，包含 '(D)' 開頭"
+        正確答案:
+          type: string
+          description: "正確選項的代號，只能是 (A)、(B)、(C) 或 (D) 其一。"
+          pattern: '^\(?[A-D]\)?$'
+        解析:
+          type: string
+          description: "說明為什麼正確答案是該選項，可包含解題步驟與概念說明。"
+      required: ["題幹", "選項A", "選項B", "選項C", "選項D", "正確答案"]
+  
+  # Evaluator Schema (評分專用)
+  evaluator_schema:
+    type: object
+    properties:
+      criteria_scores:
+        type: object
+        properties:
+          Clarity: {type: integer}
+          Relevance: {type: integer}
+          Correctness: {type: integer}
+          Similarity: {type: integer}
+          Plausibility: {type: integer}
+          Independence: {type: integer}
+          Subject_Dependency: {type: integer}
+        required: ["Clarity", "Relevance", "Correctness", "Similarity", "Plausibility", "Independence", "Subject_Dependency"]
+      total_score: {type: integer}
+      comments: {type: string}
+    required: ["criteria_scores", "total_score", "comments"]
+
+  # Optimizer Schema (優化專用)
+  optimizer_schema:
+    type: object
+    properties:
+      optimization_summary:
+        type: object
+        properties:
+          major_issues: {type: string}
+          strategy: {type: string}
+        required: ["major_issues", "strategy"]
+      final_question:
+        type: object
+        properties:
+          題幹: {type: string}
+          選項A: {type: string}
+          選項B: {type: string}
+          選項C: {type: string}
+          選項D: {type: string}
+          正確答案: {type: string}
+          解析: {type: string}
+        required: ["題幹", "選項A", "選項B", "選項C", "選項D", "正確答案", "解析"]
+    required: ["optimization_summary", "final_question"]
+
+milvus:
+  mode: "hybrid"  # 可選: semantic | bm25 | hybrid (語意/全文/混合)
+  connection_args:
+    # uri: "/app/db/milvus_history.db"
+    uri: "./milvus_history.db"
+  collection_name: "textbook_teacher"
+
+  semantic:
+    text_field: "text"
+    vector_field: "dense"
+    index_params:
+      field_name: "dense"
+      index_type: "FLAT"
+      metric_type: "IP"
+
+  bm25:
+    text_field: "text"
+    vector_field: "sparse"
+    builtin_function:
+      input_field_names: "text"
+      output_field_names: "sparse"
+      analyzer_params:
+        type: "chinese"
+      enable_match: true
+    index_params:
+      - field_name: "sparse"
+        index_name: "sparse_inverted_index"
+        index_type: "SPARSE_WAND"
+        metric_type: "BM25"
+
+  hybrid:
+    text_field: "text"
+    vector_field: ["dense", "sparse"]
+    builtin_function:
+      input_field_names: "text"
+      output_field_names: "sparse"
+      analyzer_params:
+        type: "chinese"
+      enable_match: true
+    index_params:
+      - field_name: "dense"
+        index_type: "FLAT"
+        metric_type: "IP"
+      - field_name: "sparse"
+        index_name: "sparse_inverted_index"
+        index_type: "SPARSE_WAND"
+        metric_type: "BM25"
+
+retriever:
+  search_kwargs:
+    k: 5
+
+bloom_level:
+  Remember 記憶: |
+    "這一題希望評量 記憶（Remember）層次。
+    請設計題目讓學生從長期記憶中提取具體事實或基本知識，例如：年代、人物、事件名稱、定義、地點、專有名詞對應等。
+    不要要求推論或解釋原因，只需要能正確辨認、回想或配對。"
+  Understand 理解: |
+    "這一題希望評量 理解（Understand）層次。
+    請設計題目讓學生展現對歷史知識的理解與詮釋能力，例如：用自己的話說明概念、判斷例子是否符合某概念、將資料歸類、解讀圖表、說明因果關係的大方向。
+    題目要超過單純記憶，但不需要計算或複雜推理。"
+  Apply 應用: |
+    "這一題希望評量 應用（Apply）層次。
+    請設計題目讓學生能在新情境中運用已學的歷史概念或原則，例如：把學過的制度、外交原則、思想，用在一個新的歷史情境或假設情境中做判斷或選擇。
+    重點是『看得出學生會用這個概念』，而不是只回想定義。"
+  Analyze 分析: |
+    "這一題希望評量 分析（Analyze）層次。
+    請設計題目讓學生需要拆解歷史材料、比較不同觀點、找出因果脈絡或結構，例如：比較兩個政策的異同、分析某事件的多重原因、判斷資料中的立場與觀點。
+    題目應要求學生區分、比較、找出關聯，而不是只描述事實。"
+  Evaluate 評鑑: |
+    "這一題希望評量 評鑑（Evaluate）層次。
+    請設計題目讓學生根據明確或隱含的標準，對歷史事件、人物、政策做出判斷或評價，並以史實或論據支撐自己的選擇。
+    重點是讓學生比較不同立場的優缺點、判斷哪個觀點較合理或較符合史實。"
+
+prompt:
+  question_generation: |
+    <context>
+    {context}
+    </context>
+
+    你是一名歷史考題的出題助手，請生成 {count} 題和以下主題相關的、有深度的且含有4個選項(A、B、C、D)的**單選題**：
+    
+    【出題資訊】
+    - 主題類別: {subject}
+    - 詳細主題: {topic}
+    - 認知層次: {cognitive_level}
+    - 補充要求: {query}
+
+    "context" 是和以上主題內容相關的補充資料，請盡量使用。
+
+    - 題幹字數建議在 30~60 字上下。
+    - 出完題目後 請審視題目內容與選項沒有排斥。
+    - 請嚴格按照 JSON Array 格式回傳，包含 {count} 個題目物件。
+
+    請在解析中適當引用 <context> 的內容，佐證出題的來源。
+    Output:
+    **【重要】：所有輸出內容必須使用「繁體中文」。**
+  
+  # ---------------------------------------------------------
+  # Two-Stage Self-Reflection Prompts
+  # ---------------------------------------------------------
+
+  # Stage 1: Evaluator (只負責評分，不改寫)
+  evaluator_prompt: |
+    # Role: 資深教育測驗與評量專家 (Psychometrician)
+    
+    # Task
+    請針對輸入的「考試題目」，進行"專業的"、"嚴格的"品質審查與評分。
+    你的任務是客觀地評估題目是否符合「七大核心指標」。
+    **不需要改寫題目，只需要輸出評估結果。**
+
+    # Target Cognitive Level (目標認知層次)
+    {cognitive_level}
+
+    # Evaluation Criteria (七大核心指標)
+    **計分說明：每個指標滿分 3 分 (0:不符合, 1:部分符合, 2:大部分符合, 3:完全符合)**
+
+    1. **明確性 (Clarity)**: 語意通順、無歧義。
+    2. **相關性 (Relevance)**: 對應學科主題、符合目標認知層次。
+    3. **正確性 (Correctness)**: 事實無誤、答案唯一。
+    4. **相似性 (Similarity)**: 非直接複製，具原創性。
+    5. **似真性與誤導性 (Plausibility)**: 誘答選項具似真性。
+    6. **獨立性 (Independence)**: 選項互斥不重疊。
+    7. **學科依賴度 (Subject Dependency)**: 需具備學科知識才能解題。
+
+    # Reference Material
+    <context>
+    {context}
+    </context>
+
+    # Original Question
+    {question_json}
+
+  # Stage 2: Optimizer (只負責依據評語改寫)
+  optimizer_prompt: |
+    # Role: 專業試題優化編輯 (Exam Editor)
+
+    # Task
+    你收到了一道被評審判定為「不合格」的歷史試題。
+    請根據評審的「評語 (Comments)」與「評分缺失」，重新撰寫一道優化後的題目。
+
+    **目標：修正所有被指出的缺點，使新題目在各項指標上皆能獲得滿分。**
+
+    # Requirements
+    1. **修正導向**：針對評語中的具體問題（如：選項有誘導性、題幹不明確）進行修改。
+    2. **維持原意**：盡量保留原題考核的知識點，除非該知識點本身有誤。
+    3. **格式統一**：輸出格式必須與原題結構一致。
+
+    # Reference Context
+    <context>
+    {context}
+    </context>
+
+    # Original Question & Critique
+    【原始題目】: {question_json}
+    【評審評語】: {comments}
+
+

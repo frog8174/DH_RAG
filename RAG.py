@@ -7,6 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from remote_embeddings import RemoteEmbeddings
 
 load_dotenv()  # 讀取 .env
 
@@ -18,7 +19,7 @@ milvus_conf = config["milvus"]
 mode = milvus_conf.get("mode", "bm25")
 
 # 建立 embeddings（語意或混合都需要）
-embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+embeddings = RemoteEmbeddings()
 
 # 根據模式建立 vectorstore
 if mode == "semantic":
@@ -71,7 +72,7 @@ llm = ChatGoogleGenerativeAI(
 # ====== 建立 Prompt 模板 ======
 prompt_conf = config["prompt"]
 prompt = PromptTemplate(
-    template=prompt_conf["template"],
+    template=prompt_conf["question_generation"], # question_generation / question_answering
     input_variables=["context", "question"],
 )
 
@@ -79,9 +80,16 @@ prompt = PromptTemplate(
 retriever_conf = config["retriever"]
 retriever = vectorstore_loaded.as_retriever(search_kwargs=retriever_conf["search_kwargs"])
 
-# ====== 定義格式化文件函數 ======
+# ====== 定義格式化文件函數 ====== topic subject 
 def format_docs(docs):
-    return "\n\n".join(f'["directory": {doc.metadata["directory"]}, "filename": {doc.metadata["filename"]}] {doc.page_content}' for doc in docs) # just an example
+    formatted_docs = []
+    for doc in docs:
+        subject = doc.metadata.get('subject', 'unknow_subject')
+        keywords = doc.metadata.get('keywords', 'unknow_keywords')
+        title = doc.metadata.get('title', 'unknow_title')
+        topic = doc.metadata.get('topic', 'unknow_topic')
+        formatted_docs.append(f"subject:{subject} \nkeywords:{keywords} \ntitle:{title} \ntopic:{topic}")
+    return "\n---\n".join(f'["subject": {doc.metadata["subject"]}, "keywords": {doc.metadata["keywords"]}, "title": {doc.metadata["title"]}, "topic": {doc.metadata["topic"]}] {doc.page_content}' for doc in docs) # just an example
 
 # ====== 建立 RAG Chain ======
 def inspect_input(x):
@@ -106,7 +114,9 @@ langchain.debug = False
 
 # ====== 測試查詢 ======
 if __name__ == "__main__":
-    query = "告訴我一些成語的典故？"
-    retriever.search_kwargs["expr"] = "directory == '4000-4999'" # just an example filter
+    # query = "告訴我一些成語的典故？"
+    query = "海峽兩岸的敵對與隔絕"
+    retriever.search_kwargs["expr"] = "source_type == 'teachers_book'" # just an example filter
     res = rag_chain.invoke(query)
+    print(type(res), '=========================')
     print("\n--- RAG 的輸出 ---\n", res)

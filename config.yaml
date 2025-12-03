@@ -4,29 +4,42 @@ google:
   temperature: 0
   max_tokens: null
   timeout: null
-  thinking_budget: null
+  thinking_budget: 200
   include_thoughts: true
   response_mime_type: "application/json"
   json_schema:
     type: object
     properties:
-      summary:
+      題幹:
         type: string
-      keywords:
-        type: array
-        items:
-          type: string
-      sources:
-        type: array
-        items:
-          type: string
-    required: ["summary"]
+        description: "一題單選題的題目敘述，不含選項文字。"
+      選項A:
+        type: string
+        description: "選項 A 的完整文字，包含 '(A)' 開頭"
+      選項B:
+        type: string
+        description: "選項 B 的完整文字，包含 '(B)' 開頭"
+      選項C:
+        type: string
+        description: "選項 C 的完整文字，包含 '(C)' 開頭"
+      選項D:
+        type: string
+        description: "選項 D 的完整文字，包含 '(D)' 開頭"
+      正確答案:
+        type: string
+        description: "正確選項的代號，只能是 (A)、(B)、(C) 或 (D) 其一。"
+        pattern: "^\\(?[A-D]\\)?$"
+      解析:
+        type: string
+        description: "說明為什麼正確答案是該選項，可包含解題步驟與概念說明。"
+
+    required: ["題幹", "選項A", "選項B", "選項C", "選項D", "正確答案"]
 
 milvus:
-  mode: "bm25"  # 可選: semantic | bm25 | hybrid
+  mode: "hybrid"  # 可選: semantic | bm25 | hybrid (語意/全文/混合)
   connection_args:
-    uri: "./milvus_test.db"
-  collection_name: "idiom_collection"
+    uri: "./milvus_history.db"
+  collection_name: "textbook_teacher"
 
   semantic:
     text_field: "text"
@@ -74,18 +87,15 @@ retriever:
     k: 5
 
 prompt:
-  template: |
-    Human: You are an AI assistant, and provides answers to questions by using fact based and statistical information when possible.
-    Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
-    <context>
-    {context}
-    </context>
+  question_generation: |
+    你是一名歷史考題的出題助手，請依照"題目部分敘述"以及"補充資料"，出一題有深度的、含有4個選項(A、B、C、D)的**單選題**：
 
     <question>
     {question}
     </question>
 
-    The response should be specific and use statistics or numbers when possible.
+    <context>
+    {context}
+    </context>
 
-    Assistant:
+    Output:

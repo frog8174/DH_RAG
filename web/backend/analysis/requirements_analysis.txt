@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+bertopic
+networkx
+matplotlib
+pymilvus
+pyyaml
+python-dotenv

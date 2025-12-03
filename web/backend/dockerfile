@@ -1,0 +1,27 @@
+# 使用 python 3.12 slim 當基底
+FROM python:3.12-slim
+
+# 設定工作目錄
+WORKDIR /app
+
+# 安裝必要的系統套件
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製 requirements
+COPY requirements.txt .
+
+# 安裝 python 套件
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 複製程式碼
+COPY . .
+
+# 暴露 Port 8080
+EXPOSE 6667
+
+# 使用 Uvicorn 啟動 FastAPI
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "6667"]
