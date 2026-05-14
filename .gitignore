@@ -207,3 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 *.db
+
+# === DH_RAG 專案 ===
+# 大型原始資料 / 中間產物
+Taiwan.jsonl
+GEMINI.md
+*.db.lock
